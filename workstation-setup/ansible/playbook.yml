@@ -59,33 +59,6 @@
           profile={{ profile }} hostname={{ hostname }}
           (running hostname: {{ ansible_facts['hostname'] }})
 
-    # Three roles reach GitHub over SSH, and a graphical SSH agent
-    # (gnome-keyring's gcr) blocks forever on a signing request rather than
-    # failing -- so those tasks would hang, not error. Verified: even
-    # BatchMode=yes still hangs, because the block is in the agent, not in ssh.
-    # Hence the explicit `timeout`. Checking here surfaces it before any role
-    # has changed anything.
-    - name: Check SSH access to GitHub
-      ansible.builtin.command: >-
-        timeout 25 ssh -T -o BatchMode=yes -o ConnectTimeout=15
-        -o StrictHostKeyChecking=accept-new git@github.com
-      register: preflight_ssh
-      changed_when: false
-      failed_when: false
-      become: true
-      become_user: "{{ user_name }}"
-
-    - name: Fail early if GitHub SSH is not usable non-interactively
-      ansible.builtin.fail:
-        msg: >-
-          SSH to GitHub did not authenticate non-interactively, so the
-          dotfiles and password-store clones would hang. If ssh reported
-          nothing at all below, the SSH agent blocked and the check timed out --
-          typically gnome-keyring's gcr agent waiting on a GUI prompt. Load the
-          key into a plain ssh-agent (keychain does this) and re-run.
-          ssh said: {{ preflight_ssh.stderr | default('') | trim }}
-      when: "'successfully authenticated' not in (preflight_ssh.stderr | default(''))"
-
     - name: Fail early if this machine has no profile
       ansible.builtin.assert:
         that:

@@ -98,15 +98,39 @@
       applicable), then press Enter.
   when: ssh_keys_new | length > 0
 
+# This is the gate for everything downstream: the dotfiles and password-store
+# clones both need working SSH, and would otherwise fail deep inside a role
+# with a less obvious message.
+#
+# It deliberately runs AFTER key generation and the upload pause. An earlier
+# version checked this in pre_tasks, which made a fresh machine unbuildable:
+# no key exists yet, so the check failed and aborted the play before the role
+# that creates the key could run.
+#
+# `timeout` is required, not defensive -- a graphical SSH agent blocks
+# indefinitely on signing rather than failing, and BatchMode does not help
+# because the block is in the agent. Retries cover GitHub throttling rapid
+# repeat connections, which presents as "Connection closed by ...".
 - name: Verify GitHub SSH access
   ansible.builtin.command: >-
-    ssh -T -o StrictHostKeyChecking=accept-new git@github.com
+    timeout 25 ssh -T -o BatchMode=yes -o ConnectTimeout=15
+    -o StrictHostKeyChecking=accept-new git@github.com
   register: ssh_key_test
   changed_when: false
   failed_when: false
+  retries: 3
+  delay: 5
+  until: "'successfully authenticated' in (ssh_key_test.stderr | default(''))"
   become: true
   become_user: "{{ user_name }}"
 
-- name: Show GitHub SSH check result
-  ansible.builtin.debug:
-    var: ssh_key_test.stderr
+- name: Fail if GitHub SSH is unusable
+  ansible.builtin.fail:
+    msg: >-
+      SSH to GitHub did not authenticate, so the dotfiles and password-store
+      clones cannot run. If ssh reported nothing below, the agent blocked and
+      the check timed out -- typically gnome-keyring's gcr agent waiting on a
+      GUI prompt; load the key into a plain ssh-agent instead. If the key was
+      only just generated, confirm it was actually added to GitHub.
+      ssh said: {{ ssh_key_test.stderr | default('') | trim }}
+  when: "'successfully authenticated' not in (ssh_key_test.stderr | default(''))"

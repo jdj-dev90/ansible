@@ -131,3 +131,29 @@
   loop: "{{ gui_service_start.results }}"
   loop_control:
     label: "{{ item.item }}"
+
+# Restowing the dotfiles replaces the config symlinks, and Hyprland does not
+# recover on its own: it sees the config disappear, falls back to built-in
+# defaults, and stays there. The symptom is a working desktop with the wrong
+# borders, animations and keybinds -- easy to misread as a broken config rather
+# than an unloaded one. Reload explicitly after the dotfiles role has run.
+- name: Reload Hyprland if it is running
+  ansible.builtin.shell: |
+    set -eu
+    sig=$(ls -t "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1) || exit 0
+    [ -n "${sig:-}" ] || exit 0
+    HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl reload
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ user_uid }}"
+  register: gui_hypr_reload
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Report the Hyprland reload
+  ansible.builtin.debug:
+    msg: >-
+      Hyprland was not running, so its config was not reloaded. If you are on a
+      graphical session and settings look wrong, run `hyprctl reload`.
+  when: gui_hypr_reload.rc | default(0) != 0

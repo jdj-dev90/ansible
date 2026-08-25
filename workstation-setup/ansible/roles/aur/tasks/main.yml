@@ -28,11 +28,43 @@
   changed_when: false
   become: false
 
-- name: Install missing AUR packages
-  ansible.builtin.command: >-
-    yay -S --needed --noconfirm --removemake {{ aur_missing | join(' ') }}
+# yay must not run as root, but makepkg escalates internally to `sudo pacman`
+# for build and runtime dependencies. Under Ansible there is no TTY and no
+# cached sudo timestamp (Arch uses timestamp_type=tty, so priming elsewhere
+# does not carry), and the build dies with "a terminal is required to read the
+# password".
+#
+# So grant passwordless sudo for pacman ONLY, for the duration of the build,
+# and remove it in an `always` block so a failed build cannot leave the grant
+# behind. Narrow (one binary), temporary (same play), and validated by visudo
+# before it is written -- a malformed sudoers file locks the machine out of
+# sudo entirely.
+- name: Install AUR packages
+  when: aur_missing | length > 0
   vars:
     aur_missing: "{{ aur_packages | difference(aur_installed.stdout_lines) }}"
-  when: aur_missing | length > 0
-  changed_when: true
-  become: false
+  block:
+    - name: Permit passwordless pacman for the build
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/10-ansible-aur
+        content: "{{ user_name }} ALL=(root) NOPASSWD: /usr/bin/pacman\n"
+        mode: "0440"
+        owner: root
+        group: root
+        validate: visudo -cf %s
+      become: true
+
+    - name: Install missing AUR packages
+      ansible.builtin.command: >-
+        yay -S --needed --noconfirm --removemake
+        --answerclean None --answerdiff None
+        {{ aur_missing | join(' ') }}
+      changed_when: true
+      become: false
+
+  always:
+    - name: Revoke the temporary pacman sudo grant
+      ansible.builtin.file:
+        path: /etc/sudoers.d/10-ansible-aur
+        state: absent
+      become: true

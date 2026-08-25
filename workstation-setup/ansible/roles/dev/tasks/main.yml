@@ -30,6 +30,9 @@
       - automake
       - libtool
       - pkgconf
+      # linters -- scripts/lint.sh needs both, and yamllint from the lang role
+      - shellcheck
+      - ansible-lint
       # network / db clients
       - mkcert
       - sshpass

@@ -38,8 +38,8 @@
     path: "{{ user_home }}/.ssh"
     state: directory
     mode: "0700"
-    owner: "{{ user_name }}"
-    group: "{{ user_name }}"
+    owner: "{{ user_uid }}"
+    group: "{{ user_gid }}"
 
 - name: Check for existing SSH keys
   ansible.builtin.stat:

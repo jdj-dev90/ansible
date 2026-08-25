@@ -9,7 +9,7 @@
     # machine needs no arguments. A freshly installed box whose hostname is
     # not set yet is told explicitly:
     #   ansible-playbook playbook.yml -e profile=jordan-work
-    profile: "{{ ansible_hostname }}"
+    profile: "{{ ansible_facts['hostname'] }}"
 
   # Only the static file here. The per-machine file is templated from a fact,
   # and vars_files resolution relative to fact gathering is order-sensitive --
@@ -45,15 +45,19 @@
     - name: Load this machine's vars
       ansible.builtin.include_vars: "vars/{{ profile }}.yml"
 
-    - name: Record the uid
+    # The primary group is NOT assumed to match the username -- on this machine
+    # the user's group is `wheel`, and a `jordan` group does not exist at all.
+    # Hardcoding user_name as the group made every file task fail.
+    - name: Record the uid and primary group
       ansible.builtin.set_fact:
         user_uid: "{{ ansible_facts.getent_passwd[user_name][1] }}"
+        user_gid: "{{ ansible_facts.getent_passwd[user_name][2] }}"
 
     - name: Show which profile is being applied
       ansible.builtin.debug:
         msg: >-
           profile={{ profile }} hostname={{ hostname }}
-          (running hostname: {{ ansible_hostname }})
+          (running hostname: {{ ansible_facts['hostname'] }})
 
     # Three roles reach GitHub over SSH, and a graphical SSH agent
     # (gnome-keyring's gcr) blocks forever on a signing request rather than

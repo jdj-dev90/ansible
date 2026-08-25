@@ -52,9 +52,24 @@
     path: /etc/locale.gen
     regexp: '^#?{{ locale }}'
     line: '{{ locale }} UTF-8'
-  register: base_locale_gen
-  notify: Regenerate locales
 
+# Generation is driven by observed state, not by a handler on the line above.
+# A handler only fires when locale.gen CHANGES -- so if the file is already
+# correct but the locale was never generated, the handler never runs and the
+# gap never closes. That is not hypothetical: it is exactly what happened here,
+# leaving locale.conf pointing at a locale that did not exist.
+- name: Read generated locales
+  ansible.builtin.command: locale -a
+  register: base_locales
+  changed_when: false
+
+- name: Generate locales
+  ansible.builtin.command: locale-gen
+  when: locale | replace('UTF-8', 'utf8') not in base_locales.stdout_lines
+  changed_when: true
+
+# Written LAST, so the system is never pointed at a locale that does not yet
+# exist -- even if the play fails part way through.
 - name: Set locale.conf
   ansible.builtin.copy:
     dest: /etc/locale.conf

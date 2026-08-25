@@ -1,38 +1,6 @@
 ---
 # Key identities are per-machine data, supplied by vars/<hostname>.yml, rather
 # than one hardcoded personal key -- a second machine needs a different set.
-# gnome-keyring's gcr agent hijacks SSH_AUTH_SOCK via a set-environment call in
-# its socket unit. It answers a key listing instantly but blocks forever on a
-# signing request, waiting for a graphical confirmation -- so anything
-# non-interactive hangs rather than failing, and BatchMode does not help
-# because the block is in the agent, not in ssh.
-#
-# It is enabled in GLOBAL scope, so disabling it per-user does not survive a
-# re-login. Masking is what actually sticks. Only the ssh half is disabled;
-# gnome-keyring's secrets and pkcs11 components are untouched.
-- name: Mask the gnome-keyring SSH agent
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    scope: user
-    masked: true
-    enabled: false
-  loop:
-    - gcr-ssh-agent.socket
-    - gcr-ssh-agent.service
-  become: true
-  become_user: "{{ user_name }}"
-
-# Arch ships this; it needs SSH_AUTH_SOCK pointed at it, which the dotfiles
-# `wayland` package does via .config/environment.d/10-ssh-agent.conf.
-- name: Enable the plain OpenSSH agent
-  ansible.builtin.systemd_service:
-    name: ssh-agent.socket
-    scope: user
-    enabled: true
-    state: started
-  become: true
-  become_user: "{{ user_name }}"
-
 - name: Ensure .ssh directory exists
   ansible.builtin.file:
     path: "{{ user_home }}/.ssh"

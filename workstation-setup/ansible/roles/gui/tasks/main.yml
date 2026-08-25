@@ -75,11 +75,6 @@
 # must already have run. `systemd --user` also needs the user's own session bus,
 # which is not inherited when Ansible runs under sudo -- hence the explicit
 # XDG_RUNTIME_DIR.
-- name: Look up the user's uid
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ user_name }}"
-
 - name: Check the user unit files are stowed
   ansible.builtin.stat:
     path: "{{ user_home }}/.config/systemd/user/{{ item }}"
@@ -109,7 +104,7 @@
     daemon_reload: true
   loop: "{{ user_services }}"
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[user_name][1] }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ user_uid }}"
   become: true
   become_user: "{{ user_name }}"
 
@@ -120,7 +115,7 @@
     state: started
   loop: "{{ user_services }}"
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[user_name][1] }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ user_uid }}"
   register: gui_service_start
   failed_when: false
   become: true

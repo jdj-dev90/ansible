@@ -42,15 +42,86 @@
   become: true
   become_user: "{{ user_name }}"
 
+# NOTE ON DESTRUCTIVENESS -- this role destroyed data once already.
+# ansible.builtin.git with update:true resolves to `git reset --hard`. The
+# password store accumulates commits locally every time `pass` writes an entry,
+# and they are only pushed when you remember to. Resetting it to the remote
+# therefore discards real secrets that exist nowhere else -- which is exactly
+# what happened: two API keys committed locally and never pushed were dropped.
+#
+# Same rule as the dotfiles role: clone when absent, update only when the
+# checkout is provably clean and not ahead of the remote.
+- name: Check whether the pass store is already checked out
+  ansible.builtin.stat:
+    path: "{{ pass_store_dir }}/.git"
+  register: pass_checkout
+
 - name: Clone pass store repo
   ansible.builtin.git:
     repo: "{{ pass_repo }}"
     dest: "{{ pass_store_dir }}"
     version: main
     accept_hostkey: true
-    update: true
+  when: not pass_checkout.stat.exists
   become: true
   become_user: "{{ user_name }}"
+
+- name: Check the pass store for uncommitted changes
+  ansible.builtin.command: git status --porcelain
+  args:
+    chdir: "{{ pass_store_dir }}"
+  register: pass_dirty
+  changed_when: false
+  when: pass_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Fetch pass store remote refs
+  ansible.builtin.command: git fetch origin main
+  args:
+    chdir: "{{ pass_store_dir }}"
+  changed_when: false
+  failed_when: false
+  when: pass_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Count unpushed pass store commits
+  ansible.builtin.command: git rev-list --count origin/main..HEAD
+  args:
+    chdir: "{{ pass_store_dir }}"
+  register: pass_ahead
+  changed_when: false
+  when: pass_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Update the pass store only when it is safe to do so
+  ansible.builtin.git:
+    repo: "{{ pass_repo }}"
+    dest: "{{ pass_store_dir }}"
+    version: main
+    accept_hostkey: true
+    update: true
+  when:
+    - pass_checkout.stat.exists
+    - pass_dirty.stdout | default('') | trim == ''
+    - pass_ahead.stdout | default('0') | int == 0
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Report a skipped pass store update
+  ansible.builtin.debug:
+    msg: >-
+      Left {{ pass_store_dir }} alone: it has
+      {{ pass_dirty.stdout_lines | default([]) | length }} uncommitted
+      change(s) and {{ pass_ahead.stdout | default('0') }} unpushed commit(s).
+      Updating would have discarded secrets that exist nowhere else. Push the
+      store, then re-run.
+  when:
+    - pass_checkout.stat.exists
+    - (pass_dirty.stdout | default('') | trim != '') or
+      (pass_ahead.stdout | default('0') | int > 0)
 
 - name: Read pass store GPG id
   ansible.builtin.slurp:

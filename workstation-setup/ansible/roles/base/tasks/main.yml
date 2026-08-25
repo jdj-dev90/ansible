@@ -1,4 +1,7 @@
 ---
+# System plumbing only. Anything with a service or firmware side effect
+# (network stack, bootloader, kernel, firmware) belongs to the archinstall
+# baseline, not here -- see issue #11.
 - name: Ensure base packages are installed
   ansible.builtin.package:
     name:
@@ -8,10 +11,31 @@
       - wget
       - unzip
       - zip
+      - unrar
+      - 7zip
       - tar
       - gzip
       - ca-certificates
+      - rsync
+      - stow
+      - man-db
+      - which
+      - lsof
+      - file
+      - tree-sitter-cli
+      - inetutils
+      - usbutils
+      - acpi
+      - pacman-contrib
+      - pkgfile
+      - ntfs-3g
+      - exfatprogs
+      - dosfstools
     state: present
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ hostname }}"
 
 - name: Read current timezone
   ansible.builtin.command: timedatectl show -p Timezone --value

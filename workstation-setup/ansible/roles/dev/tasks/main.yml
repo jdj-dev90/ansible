@@ -2,12 +2,54 @@
 - name: Ensure dev packages are installed
   ansible.builtin.package:
     name:
+      # version control
       - git
       - git-delta
       - git-lfs
+      - git-filter-repo
+      - github-cli
+      - glab
+      - lazygit
+      # containers
       - docker
       - docker-compose
+      - docker-buildx
+      - lazydocker
+      # kubernetes
+      - kubectl
+      - kustomize
+      - k9s
+      # infrastructure
+      - terraform
+      # build toolchain
+      - make
+      - cmake
+      - ninja
+      - gcc
+      - autoconf
+      - automake
+      - libtool
+      - pkgconf
+      # network / db clients
+      - mkcert
+      - sshpass
+      - sshfs
+      - socat
+      - nmap
+      - bind
+      - openbsd-netcat
+      - mariadb-clients
     state: present
+
+- name: Install dev AUR packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages:
+      - neovim-nightly-bin
+      - jqp
+      - docker-sbx
+      - dockd
 
 - name: Enable and start Docker
   ansible.builtin.systemd:

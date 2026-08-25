@@ -2,13 +2,25 @@
 - name: Ensure language toolchain packages are installed
   ansible.builtin.package:
     name:
+      # go
       - go
+      - golangci-lint
+      # python
       - python
       - python-pip
+      - pyenv
+      # node -- nvm, not fnm: fnm was declared but has never been installed
       - nodejs
       - npm
-      - pnpm
-      - fnm
+      - nvm
+      # rust tooling
+      - rust-analyzer
+      # linters / formatters
+      - eslint
+      - eslint_d
+      - stylua
+      - yamllint
+      # build deps for pyenv-compiled interpreters
       - openssl
       - zlib
       - xz

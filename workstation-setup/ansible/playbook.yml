@@ -3,18 +3,32 @@
   hosts: localhost
   connection: local
   become: true
+
   vars:
-    user_name: jordan
-    user_home: /home/jordan
-    hostname: jordan-work
-    timezone: Australia/Brisbane
-    locale: en_AU.UTF-8
-    dotfiles_repo: git@github.com:jdj-dev90/.dotfiles.git
-    pass_repo: git@github.com:jdj-dev90/pwd-store.git
-    pass_store_dir: /home/jordan/.password-store
-    gpg_key_path: /home/jordan/Downloads/secret.gpg
-    gpg_fingerprint: 5EDF4EFC982097211EFA22820E3D38ACB02C5925
-    ssh_key_comment: jdj.dev90@gmail.com
+    # Which machine is this? Defaults to the running hostname, so a named
+    # machine needs no arguments. A freshly installed box whose hostname is
+    # not set yet is told explicitly:
+    #   ansible-playbook playbook.yml -e profile=jordan-work
+    profile: "{{ ansible_hostname }}"
+
+  vars_files:
+    - vars/common.yml
+    - "vars/{{ profile }}.yml"
+
+  pre_tasks:
+    - name: Show which profile is being applied
+      ansible.builtin.debug:
+        msg: >-
+          profile={{ profile }} hostname={{ hostname }}
+          (running hostname: {{ ansible_hostname }})
+
+    - name: Fail early if this machine has no profile
+      ansible.builtin.assert:
+        that:
+          - hostname is defined
+        fail_msg: >-
+          No vars/{{ profile }}.yml found. Create one, or pass a known profile
+          with -e profile=<name>.
 
   roles:
     - base
@@ -23,6 +37,13 @@
     - dotfiles
     - shell
     - lang
-    - cloud
+    # Work tooling. Correct as an end state: it currently also lives on archbox
+    # out of necessity, but that install is manual and is left alone -- this
+    # playbook simply does not manage it there. See issue #6.
+    - role: cloud
+      when: profile == 'jordan-work'
+    # Password store. Used on both machines today; how it should be split is
+    # still open. See issue #9.
     - pass
     - gui
+    - apps

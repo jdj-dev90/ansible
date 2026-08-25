@@ -1,0 +1,28 @@
+---
+# Personal machine. Keeps its existing hostname deliberately: the name is
+# recorded in SSH configs and elsewhere, so renaming has a real blast radius
+# for no gain. The `hostname` task therefore asserts reality here rather than
+# changing anything.
+hostname: archbox
+
+# Personal-only software.
+extra_packages:
+  - qbittorrent
+  - blender
+  - godot
+  - moonlight-qt
+  - obs-studio
+  - proton-vpn-cli
+  - gimp
+
+extra_aur_packages: []
+
+# Work tooling already on this machine is deliberately NOT managed here: it is
+# installed, it works, and this machine is the backup. Ansible simply leaves it
+# alone rather than adopting or removing it.
+
+# One personal identity. The work identities present on this machine are
+# likewise unmanaged, for the same reason. See issue #8.
+ssh_keys:
+  - name: id_ed25519
+    comment: jdj.dev90@gmail.com

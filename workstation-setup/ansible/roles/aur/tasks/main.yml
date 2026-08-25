@@ -1,0 +1,38 @@
+---
+# Reusable AUR installer. Each role owns its own `aur_packages` list and
+# includes this role, rather than a single centralized list:
+#
+#   - name: Install dev AUR packages
+#     ansible.builtin.include_role:
+#       name: aur
+#     vars:
+#       aur_packages:
+#         - neovim-nightly-bin
+#
+# yay must never run as root, hence become: false throughout.
+- name: Check that yay is available
+  ansible.builtin.command: which yay
+  register: aur_yay
+  changed_when: false
+  failed_when: false
+  become: false
+
+- name: Fail if yay is missing
+  ansible.builtin.fail:
+    msg: "yay not found. Run bootstrap/arch-bootstrap.sh before the playbook."
+  when: aur_yay.rc != 0
+
+- name: List installed packages
+  ansible.builtin.command: pacman -Qq
+  register: aur_installed
+  changed_when: false
+  become: false
+
+- name: Install missing AUR packages
+  ansible.builtin.command: >-
+    yay -S --needed --noconfirm --removemake {{ aur_missing | join(' ') }}
+  vars:
+    aur_missing: "{{ aur_packages | difference(aur_installed.stdout_lines) }}"
+  when: aur_missing | length > 0
+  changed_when: true
+  become: false

@@ -3,11 +3,39 @@
   ansible.builtin.package:
     name:
       - zsh
+      - zsh-completions
       - tmux
-      - byobu
+      - vim
       - fzf
       - zoxide
-      - lf
+      - keychain
+      # clipboard (X11 side; the Wayland tools live in the gui role)
       - xclip
-      - bc
+      - xsel
+      # modern coreutils replacements
+      - ripgrep
+      - fd
+      - eza
+      - bat
+      # data wrangling
+      - jq
+      - yq
+      - fx
+      - tabiew
+      # system inspection
+      - htop
+      - btop
+      - tldr
+      # file managers
+      - nnn
+      - vifm
     state: present
+
+- name: Install shell AUR packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages:
+      - ncpamixer
+      - pacmixer
+      - neofetch

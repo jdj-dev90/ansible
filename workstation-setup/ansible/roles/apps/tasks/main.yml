@@ -1,0 +1,49 @@
+---
+# User-facing applications. The desktop itself is the `gui` role.
+- name: Ensure applications are installed
+  ansible.builtin.package:
+    name:
+      # terminals
+      - ghostty
+      - kitty
+      # browsers
+      - firefox
+      - chromium
+      # documents
+      - zathura
+      - zathura-pdf-mupdf
+      - zathura-djvu
+      # media
+      - mpv
+      - vlc
+      - imagemagick
+      # notes
+      - obsidian
+      # system utilities
+      - pcmanfm
+      - gnome-disk-utility
+      - nm-connection-editor
+    state: present
+
+- name: Install application AUR packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages:
+      - postman-bin
+      - bruno-bin
+      - ngrok
+      - zsa-keymapp-bin
+
+- name: Ensure machine-specific packages are installed
+  ansible.builtin.package:
+    name: "{{ extra_packages }}"
+    state: present
+  when: extra_packages | length > 0
+
+- name: Install machine-specific AUR packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages: "{{ extra_aur_packages }}"
+  when: extra_aur_packages | length > 0

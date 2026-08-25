@@ -1,4 +1,6 @@
 ---
+# Key identities are per-machine data, supplied by vars/<hostname>.yml, rather
+# than one hardcoded personal key -- a second machine needs a different set.
 - name: Ensure .ssh directory exists
   ansible.builtin.file:
     path: "{{ user_home }}/.ssh"
@@ -7,36 +9,54 @@
     owner: "{{ user_name }}"
     group: "{{ user_name }}"
 
-- name: Check for existing SSH key
+- name: Check for existing SSH keys
   ansible.builtin.stat:
-    path: "{{ user_home }}/.ssh/id_ed25519"
+    path: "{{ user_home }}/.ssh/{{ item.name }}"
   register: ssh_key_stat
+  loop: "{{ ssh_keys }}"
+  loop_control:
+    label: "{{ item.name }}"
 
-- name: Generate SSH key
+- name: Generate missing SSH keys
   ansible.builtin.command: >-
-    ssh-keygen -t ed25519 -C "{{ ssh_key_comment }}" -f "{{ user_home }}/.ssh/id_ed25519" -N ""
-  when: not ssh_key_stat.stat.exists
+    ssh-keygen -t ed25519 -C "{{ item.item.comment }}"
+    -f "{{ user_home }}/.ssh/{{ item.item.name }}" -N ""
+  when: not item.stat.exists
   changed_when: true
+  loop: "{{ ssh_key_stat.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
   become: true
   become_user: "{{ user_name }}"
 
-- name: Read public key
+- name: Read public keys
   ansible.builtin.slurp:
-    src: "{{ user_home }}/.ssh/id_ed25519.pub"
+    src: "{{ user_home }}/.ssh/{{ item.name }}.pub"
   register: ssh_key_pub
+  loop: "{{ ssh_keys }}"
+  loop_control:
+    label: "{{ item.name }}"
   become: true
   become_user: "{{ user_name }}"
 
-- name: Show public key for GitHub
+- name: Show public keys for upload
   ansible.builtin.debug:
-    msg: "Add this SSH key to GitHub, then return to continue:\n{{ ssh_key_pub.content | b64decode }}"
+    msg: >-
+      {{ item.item.name }}:
+      {{ item.content | b64decode | trim }}
+  loop: "{{ ssh_key_pub.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
 
-- name: Pause for GitHub SSH key setup
+- name: Pause for key upload
   ansible.builtin.pause:
-    prompt: "Press Enter after adding the SSH key to GitHub."
+    prompt: >-
+      Add the keys above to their remotes (GitHub, GitLab, Bitbucket as
+      applicable), then press Enter.
 
 - name: Verify GitHub SSH access
-  ansible.builtin.command: ssh -T -o StrictHostKeyChecking=accept-new git@github.com
+  ansible.builtin.command: >-
+    ssh -T -o StrictHostKeyChecking=accept-new git@github.com
   register: ssh_key_test
   changed_when: false
   failed_when: false
@@ -45,4 +65,4 @@
 
 - name: Show GitHub SSH check result
   ansible.builtin.debug:
-    var: ssh_key_test.stdout
+    var: ssh_key_test.stderr

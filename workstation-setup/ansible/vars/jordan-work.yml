@@ -1,0 +1,17 @@
+---
+# Work machine. Built from bare metal by this playbook.
+hostname: jordan-work
+
+# No personal media or gaming software on a work-owned machine.
+extra_packages:
+  - mysql-workbench
+
+extra_aur_packages:
+  - slack-desktop
+  - cloudflare-warp-bin
+
+# Labels only -- this repo is public, so nothing identifying goes here.
+# See issue #8.
+ssh_keys:
+  - name: id_ed25519
+    comment: "{{ hostname }}"

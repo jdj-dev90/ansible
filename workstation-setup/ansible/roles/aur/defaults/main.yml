@@ -1,0 +1,4 @@
+---
+# Callers override this via include_role vars. Empty by default so the role
+# is a no-op if included without a list.
+aur_packages: []

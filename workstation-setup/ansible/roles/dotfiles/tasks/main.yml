@@ -9,13 +9,37 @@
   become: true
   become_user: "{{ user_name }}"
 
+# The dotfiles repo declares the canonical stow list in zsh/.zsh_profile. We
+# keep our own copy in vars/common.yml rather than parsing shell at runtime,
+# but assert the two agree -- this list has silently drifted before, leaving
+# the role stowing packages that no longer exist.
+- name: Read the stow list declared by the dotfiles repo
+  ansible.builtin.slurp:
+    src: "{{ user_home }}/.dotfiles/zsh/.zsh_profile"
+  register: dotfiles_zsh_profile
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Ensure our stow list matches the dotfiles repo
+  ansible.builtin.assert:
+    that:
+      - dotfiles_declared_stow == stow_folders
+    fail_msg: >-
+      stow_folders has drifted. vars/common.yml says '{{ stow_folders }}' but
+      the dotfiles repo declares '{{ dotfiles_declared_stow }}'. Reconcile
+      before continuing.
+  vars:
+    dotfiles_declared_stow: >-
+      {{ (dotfiles_zsh_profile.content | b64decode)
+         | regex_search('STOW_FOLDERS="([^"]*)"', '\1') | first }}
+
 - name: Run dotfiles install script
   ansible.builtin.command: "{{ user_home }}/.dotfiles/install"
   args:
     chdir: "{{ user_home }}/.dotfiles"
   environment:
     DOTFILES: "{{ user_home }}/.dotfiles"
-    STOW_FOLDERS: "bin,gitconfig,nvim,screenlayout,tmux,wallpapers,x11,zsh"
+    STOW_FOLDERS: "{{ stow_folders }}"
   changed_when: false
   become: true
   become_user: "{{ user_name }}"

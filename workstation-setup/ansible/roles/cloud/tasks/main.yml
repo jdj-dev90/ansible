@@ -1,6 +1,36 @@
 ---
-- name: Ensure cloud SDK packages are installed
+# The old task installed `google-cloud-sdk`, which is not a package in any
+# repo -- official or AUR. On archbox the CLI is a vendor tarball extracted
+# into the home directory, with no upgrade path at all.
+#
+# The maintained AUR package replaces it, so upgrades arrive with every
+# `yay -Syu` instead of being a manual chore.
+- name: Ensure cloud CLI packages are installed
   ansible.builtin.package:
     name:
-      - google-cloud-sdk
+      - azure-cli
     state: present
+
+- name: Install cloud CLI AUR packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages:
+      - google-cloud-cli
+
+# The dotfiles shell init sources the vendor tarball's path/completion files.
+# Both lines are `[ -f ]`-guarded, so they degrade to no-ops once the tarball
+# is gone rather than erroring -- but say so out loud rather than assuming it.
+- name: Check for a leftover vendor SDK install
+  ansible.builtin.stat:
+    path: "{{ user_home }}/google-cloud-sdk"
+  register: cloud_vendor_sdk
+
+- name: Warn about a shadowing vendor SDK
+  ansible.builtin.debug:
+    msg: >-
+      {{ user_home }}/google-cloud-sdk still exists. The dotfiles shell init
+      puts it on PATH ahead of the packaged CLI, so `gcloud` will keep
+      resolving to the unmanaged copy. Remove it manually once you have
+      confirmed the packaged CLI works.
+  when: cloud_vendor_sdk.stat.exists

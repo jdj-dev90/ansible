@@ -1,8 +1,80 @@
 ---
-- name: Ensure GUI utilities are installed
+# The Wayland desktop itself: compositor, shell components, portals, fonts,
+# audio. User-facing applications live in the `apps` role.
+#
+# Every package here is an official-repo package -- verified against the real
+# machine, none appear in the foreign/AUR list -- so this role needs no AUR
+# entry at all.
+- name: Ensure desktop packages are installed
   ansible.builtin.package:
     name:
-      - zathura
+      # compositor
+      - hyprland
+      - hyprshot
+      # xorg-xwayland is NOT X11 cruft: Hyprland needs it for X11 clients
+      - xorg-xwayland
+      # shell components
+      - waybar
+      - swaync
+      - wofi
+      - cliphist
+      - wl-clipboard
+      # display / output management
+      - kanshi
+      - nwg-displays
+      # portals -- screen sharing, file pickers
+      - xdg-desktop-portal
+      - xdg-desktop-portal-gtk
+      - xdg-desktop-portal-hyprland
+      # audio
+      - pipewire-pulse
+      - wireplumber
+      - alsa-utils
       - pavucontrol
-      - stalonetray
+      # theming and secrets agent
+      - python-pywal
+      - gnome-keyring
+      # fonts
+      - ttf-jetbrains-mono-nerd
+      - ttf-inconsolata
+      - otf-font-awesome
+      - woff2-font-awesome
     state: present
+
+# These units ship in the dotfiles `wayland` stow package, so the dotfiles role
+# must already have run. `systemd --user` also needs the user's own session bus,
+# which is not inherited when Ansible runs under sudo -- hence the explicit
+# XDG_RUNTIME_DIR.
+- name: Look up the user's uid
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ user_name }}"
+
+- name: Check the user unit files are stowed
+  ansible.builtin.stat:
+    path: "{{ user_home }}/.config/systemd/user/{{ item }}"
+  register: gui_unit_files
+  loop: "{{ user_services }}"
+
+- name: Fail if a user unit is missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ item.item }} is not present in ~/.config/systemd/user. The dotfiles
+      role must run before this one.
+  when: not item.stat.exists
+  loop: "{{ gui_unit_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Enable and start user services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    scope: user
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ user_services }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[user_name][1] }}"
+  become: true
+  become_user: "{{ user_name }}"

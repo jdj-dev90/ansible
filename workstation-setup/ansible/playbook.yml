@@ -11,9 +11,13 @@
     #   ansible-playbook playbook.yml -e profile=jordan-work
     profile: "{{ ansible_hostname }}"
 
+  # Only the static file here. The per-machine file is templated from a fact,
+  # and vars_files resolution relative to fact gathering is order-sensitive --
+  # so it is loaded explicitly in pre_tasks instead, where the ordering is
+  # unambiguous. common.yml must stay here: play-level environment references
+  # git_ssh_command from it, and that is templated for the very first task.
   vars_files:
     - vars/common.yml
-    - "vars/{{ profile }}.yml"
 
   # Play-level so every git task inherits it -- setting it per-task invites
   # exactly the coverage gap this replaces. Inert for non-git tasks.
@@ -37,6 +41,9 @@
       ansible.builtin.getent:
         database: passwd
         key: "{{ user_name }}"
+
+    - name: Load this machine's vars
+      ansible.builtin.include_vars: "vars/{{ profile }}.yml"
 
     - name: Record the uid
       ansible.builtin.set_fact:

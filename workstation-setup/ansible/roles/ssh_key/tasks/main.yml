@@ -71,6 +71,16 @@
   become: true
   become_user: "{{ user_name }}"
 
+# Only surface keys that were just created. Showing and pausing on every run
+# would block an otherwise unattended playbook forever, on a machine whose keys
+# were uploaded long ago.
+- name: Note which keys were newly generated
+  ansible.builtin.set_fact:
+    ssh_keys_new: >-
+      {{ ssh_key_stat.results
+         | rejectattr('stat.exists')
+         | map(attribute='item.name') | list }}
+
 - name: Show public keys for upload
   ansible.builtin.debug:
     msg: >-
@@ -79,12 +89,14 @@
   loop: "{{ ssh_key_pub.results }}"
   loop_control:
     label: "{{ item.item.name }}"
+  when: item.item.name in ssh_keys_new
 
 - name: Pause for key upload
   ansible.builtin.pause:
     prompt: >-
       Add the keys above to their remotes (GitHub, GitLab, Bitbucket as
       applicable), then press Enter.
+  when: ssh_keys_new | length > 0
 
 - name: Verify GitHub SSH access
   ansible.builtin.command: >-

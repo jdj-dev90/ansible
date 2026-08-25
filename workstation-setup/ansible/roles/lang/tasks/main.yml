@@ -9,10 +9,14 @@
       - python
       - python-pip
       - pyenv
-      # node -- nvm, not fnm: fnm was declared but has never been installed
-      - nodejs
+      # node: no bare `nodejs`. That forces one specific provider and
+      # conflicts with an installed nodejs-lts-iron; npm already depends on
+      # nodejs>=20.17.0, so pacman picks whichever provider is present -- the
+      # LTS package on an existing machine, plain nodejs on a fresh one.
+      # Version switching is fnm's job, not the system package manager's.
+      # `nvm` was declared here but is never sourced by the shell config.
       - npm
-      - nvm
+      - fnm
       # rust tooling
       - rust-analyzer
       # linters / formatters

@@ -39,6 +39,31 @@
 # behind. Narrow (one binary), temporary (same play), and validated by visudo
 # before it is written -- a malformed sudoers file locks the machine out of
 # sudo entirely.
+# Some AUR PKGBUILDs declare validpgpkeys and makepkg imports them from a
+# keyserver. On a freshly built machine there is no ~/.gnupg and no keyserver
+# configured, so the import fails with "keyserver receive failed: No data" and
+# takes the whole build down. An existing machine never shows this, because it
+# has years of accumulated keyring state.
+- name: Ensure a GnuPG home exists
+  ansible.builtin.file:
+    path: "{{ user_home }}/.gnupg"
+    state: directory
+    mode: "0700"
+    owner: "{{ user_uid }}"
+    group: "{{ user_gid }}"
+  become: true
+
+- name: Configure a keyserver for source verification
+  ansible.builtin.lineinfile:
+    path: "{{ user_home }}/.gnupg/gpg.conf"
+    line: "keyserver hkps://keyserver.ubuntu.com"
+    regexp: "^keyserver "
+    create: true
+    mode: "0600"
+    owner: "{{ user_uid }}"
+    group: "{{ user_gid }}"
+  become: true
+
 - name: Install AUR packages
   when: aur_missing | length > 0
   vars:

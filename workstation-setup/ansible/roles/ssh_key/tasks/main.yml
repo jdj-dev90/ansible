@@ -76,7 +76,7 @@
 # were uploaded long ago.
 - name: Note which keys were newly generated
   ansible.builtin.set_fact:
-    ssh_keys_new: >-
+    ssh_key_new_names: >-
       {{ ssh_key_stat.results
          | rejectattr('stat.exists')
          | map(attribute='item.name') | list }}
@@ -89,14 +89,14 @@
   loop: "{{ ssh_key_pub.results }}"
   loop_control:
     label: "{{ item.item.name }}"
-  when: item.item.name in ssh_keys_new
+  when: item.item.name in ssh_key_new_names
 
 - name: Pause for key upload
   ansible.builtin.pause:
     prompt: >-
       Add the keys above to their remotes (GitHub, GitLab, Bitbucket as
       applicable), then press Enter.
-  when: ssh_keys_new | length > 0
+  when: ssh_key_new_names | length > 0
 
 # This is the gate for everything downstream: the dotfiles and password-store
 # clones both need working SSH, and would otherwise fail deep inside a role

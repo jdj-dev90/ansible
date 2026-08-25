@@ -66,7 +66,10 @@
   become: true
   become_user: "{{ user_name }}"
 
-- name: Check the pass store for uncommitted changes
+# The git module clones and updates; it cannot report whether a checkout is
+# dirty or how far ahead it is. Those answers are the entire point of the
+# guard below, so these three tasks shell out deliberately -- hence the noqa.
+- name: Check the pass store for uncommitted changes # noqa: command-instead-of-module
   ansible.builtin.command: git status --porcelain
   args:
     chdir: "{{ pass_store_dir }}"
@@ -76,7 +79,7 @@
   become: true
   become_user: "{{ user_name }}"
 
-- name: Fetch pass store remote refs
+- name: Fetch pass store remote refs # noqa: command-instead-of-module
   ansible.builtin.command: git fetch origin main
   args:
     chdir: "{{ pass_store_dir }}"
@@ -86,7 +89,7 @@
   become: true
   become_user: "{{ user_name }}"
 
-- name: Count unpushed pass store commits
+- name: Count unpushed pass store commits # noqa: command-instead-of-module
   ansible.builtin.command: git rev-list --count origin/main..HEAD
   args:
     chdir: "{{ pass_store_dir }}"

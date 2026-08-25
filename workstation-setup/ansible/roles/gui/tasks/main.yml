@@ -139,9 +139,11 @@
 # than an unloaded one. Reload explicitly after the dotfiles role has run.
 - name: Reload Hyprland if it is running
   ansible.builtin.shell: |
-    set -eu
-    sig=$(ls -t "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1) || exit 0
-    [ -n "${sig:-}" ] || exit 0
+    set -euo pipefail
+    # Guard the directory first so the pipe below cannot fail under pipefail.
+    [ -d "$XDG_RUNTIME_DIR/hypr" ] || exit 0
+    sig=$(ls -t "$XDG_RUNTIME_DIR/hypr" | head -1)
+    [ -n "$sig" ] || exit 0
     HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl reload
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ user_uid }}"

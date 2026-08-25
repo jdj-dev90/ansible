@@ -29,6 +29,10 @@ pass_store_dir: /home/jordan/.password-store
 gpg_key_path: /home/jordan/Downloads/secret.gpg
 gpg_fingerprint: 5EDF4EFC982097211EFA22820E3D38ACB02C5925
 
+# DisplayLink dock support. Off by default: it pulls a DKMS kernel module, so
+# it is only worth building on the machine that actually meets the dock.
+displaylink_enabled: false
+
 # systemd --user units shipped by the dotfiles `wayland` stow package.
 user_services:
   - waybar.service

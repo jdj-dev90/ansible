@@ -41,6 +41,36 @@
       - woff2-font-awesome
     state: present
 
+# DisplayLink dock. The dock is a USB device with a userspace driver, so it is
+# vendor-agnostic -- but it drives displays through an out-of-tree DKMS module
+# (evdi) rather than the normal DRM path, which is why it is opt-in per machine.
+#
+# Hyprland does not officially support DisplayLink and it was long broken on
+# Intel graphics; the aquamarine patch makes it work in practice. Treat a
+# working dock as something to verify after a kernel upgrade, not assume.
+- name: Ensure kernel headers are present for the evdi DKMS module
+  ansible.builtin.package:
+    name:
+      - linux-headers
+    state: present
+  when: displaylink_enabled
+
+- name: Install DisplayLink packages
+  ansible.builtin.include_role:
+    name: aur
+  vars:
+    aur_packages:
+      - displaylink
+      - evdi-dkms-git
+  when: displaylink_enabled
+
+- name: Enable and start the DisplayLink driver
+  ansible.builtin.systemd_service:
+    name: displaylink.service
+    enabled: true
+    state: started
+  when: displaylink_enabled
+
 # These units ship in the dotfiles `wayland` stow package, so the dotfiles role
 # must already have run. `systemd --user` also needs the user's own session bus,
 # which is not inherited when Ansible runs under sudo -- hence the explicit

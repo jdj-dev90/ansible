@@ -10,6 +10,9 @@ extra_aur_packages:
   - slack-desktop
   - cloudflare-warp-bin
 
+# This machine meets the DisplayLink dock that drives the external screens.
+displaylink_enabled: true
+
 # Labels only -- this repo is public, so nothing identifying goes here.
 # See issue #8.
 ssh_keys:

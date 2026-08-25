@@ -36,8 +36,16 @@
   become: true
   become_user: "{{ user_name }}"
 
+# Explicit refspec so the remote-tracking ref is always updated, rather than
+# relying on git doing it opportunistically.
+#
+# This fetch can fail -- GitHub throttles rapid repeat connections -- and a
+# failure here is not harmless: the count below would then compare against a
+# stale origin/main, report pushed commits as unpushed, and skip the update
+# while blaming the user for unpushed work. Its result is recorded so the
+# report can say "could not check" instead of asserting something false.
 - name: Fetch remote refs # noqa: command-instead-of-module
-  ansible.builtin.command: git fetch origin main
+  ansible.builtin.command: git fetch origin +refs/heads/main:refs/remotes/origin/main
   args:
     chdir: "{{ user_home }}/.dotfiles"
   register: dotfiles_fetch
@@ -66,10 +74,22 @@
     update: true
   when:
     - dotfiles_checkout.stat.exists
+    - dotfiles_fetch.rc | default(1) == 0
     - dotfiles_dirty.stdout | default('') | trim == ''
     - dotfiles_ahead.stdout | default('0') | int == 0
   become: true
   become_user: "{{ user_name }}"
+
+- name: Report that the dotfiles remote could not be reached
+  ansible.builtin.debug:
+    msg: >-
+      Could not fetch the dotfiles remote, so how far ahead this checkout is
+      cannot be determined. Left {{ user_home }}/.dotfiles alone rather than
+      risk discarding work. git said:
+      {{ dotfiles_fetch.stderr | default('') | trim }}
+  when:
+    - dotfiles_checkout.stat.exists
+    - dotfiles_fetch.rc | default(0) != 0
 
 - name: Report a skipped dotfiles update
   ansible.builtin.debug:
@@ -81,6 +101,7 @@
       re-run.
   when:
     - dotfiles_checkout.stat.exists
+    - dotfiles_fetch.rc | default(0) == 0
     - (dotfiles_dirty.stdout | default('') | trim != '') or
       (dotfiles_ahead.stdout | default('0') | int > 0)
 

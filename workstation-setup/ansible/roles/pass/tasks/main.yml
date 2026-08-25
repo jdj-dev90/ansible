@@ -79,10 +79,19 @@
   become: true
   become_user: "{{ user_name }}"
 
+# Explicit refspec so the remote-tracking ref is always updated, rather than
+# relying on git doing it opportunistically.
+#
+# This fetch can fail -- GitHub throttles rapid repeat connections -- and a
+# failure here is not harmless: the count below would then compare against a
+# stale origin/main, report pushed commits as unpushed, and skip the update
+# while blaming the user for unpushed work. Its result is recorded so the
+# report can say "could not check" instead of asserting something false.
 - name: Fetch pass store remote refs # noqa: command-instead-of-module
-  ansible.builtin.command: git fetch origin main
+  ansible.builtin.command: git fetch origin +refs/heads/main:refs/remotes/origin/main
   args:
     chdir: "{{ pass_store_dir }}"
+  register: pass_fetch
   changed_when: false
   failed_when: false
   when: pass_checkout.stat.exists
@@ -108,10 +117,21 @@
     update: true
   when:
     - pass_checkout.stat.exists
+    - pass_fetch.rc | default(1) == 0
     - pass_dirty.stdout | default('') | trim == ''
     - pass_ahead.stdout | default('0') | int == 0
   become: true
   become_user: "{{ user_name }}"
+
+- name: Report that the pass store remote could not be reached
+  ansible.builtin.debug:
+    msg: >-
+      Could not fetch the pass store remote, so how far ahead it is cannot be
+      determined. Left {{ pass_store_dir }} alone rather than risk discarding
+      secrets. git said: {{ pass_fetch.stderr | default('') | trim }}
+  when:
+    - pass_checkout.stat.exists
+    - pass_fetch.rc | default(0) != 0
 
 - name: Report a skipped pass store update
   ansible.builtin.debug:
@@ -123,6 +143,7 @@
       store, then re-run.
   when:
     - pass_checkout.stat.exists
+    - pass_fetch.rc | default(0) == 0
     - (pass_dirty.stdout | default('') | trim != '') or
       (pass_ahead.stdout | default('0') | int > 0)
 

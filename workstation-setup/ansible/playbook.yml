@@ -1,0 +1,28 @@
+---
+- name: Workstation setup
+  hosts: localhost
+  connection: local
+  become: true
+  vars:
+    user_name: jordan
+    user_home: /home/jordan
+    hostname: jordan-work
+    timezone: Australia/Brisbane
+    locale: en_AU.UTF-8
+    dotfiles_repo: git@github.com:jdj-dev90/.dotfiles.git
+    pass_repo: git@github.com:jdj-dev90/pwd-store.git
+    pass_store_dir: /home/jordan/.password-store
+    gpg_key_path: /home/jordan/Downloads/secret.gpg
+    gpg_fingerprint: 5EDF4EFC982097211EFA22820E3D38ACB02C5925
+    ssh_key_comment: jdj.dev90@gmail.com
+
+  roles:
+    - base
+    - dev
+    - ssh_key
+    - dotfiles
+    - shell
+    - lang
+    - cloud
+    - pass
+    - gui

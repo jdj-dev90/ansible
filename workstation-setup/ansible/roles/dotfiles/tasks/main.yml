@@ -1,0 +1,21 @@
+---
+- name: Clone dotfiles repo
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ user_home }}/.dotfiles"
+    version: main
+    accept_hostkey: true
+    update: true
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Run dotfiles install script
+  ansible.builtin.command: "{{ user_home }}/.dotfiles/install"
+  args:
+    chdir: "{{ user_home }}/.dotfiles"
+  environment:
+    DOTFILES: "{{ user_home }}/.dotfiles"
+    STOW_FOLDERS: "bin,gitconfig,nvim,screenlayout,tmux,wallpapers,x11,zsh"
+  changed_when: false
+  become: true
+  become_user: "{{ user_name }}"

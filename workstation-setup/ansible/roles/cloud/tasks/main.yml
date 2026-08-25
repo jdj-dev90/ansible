@@ -1,0 +1,6 @@
+---
+- name: Ensure cloud SDK packages are installed
+  ansible.builtin.package:
+    name:
+      - google-cloud-sdk
+    state: present

@@ -1,0 +1,13 @@
+---
+- name: Ensure shell packages are installed
+  ansible.builtin.package:
+    name:
+      - zsh
+      - tmux
+      - byobu
+      - fzf
+      - zoxide
+      - lf
+      - xclip
+      - bc
+    state: present

@@ -1,0 +1,22 @@
+---
+- name: Ensure dev packages are installed
+  ansible.builtin.package:
+    name:
+      - git
+      - git-delta
+      - git-lfs
+      - docker
+      - docker-compose
+    state: present
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure user is in docker group
+  ansible.builtin.user:
+    name: "{{ user_name }}"
+    groups: docker
+    append: true

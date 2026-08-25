@@ -1,0 +1,20 @@
+---
+- name: Ensure language toolchain packages are installed
+  ansible.builtin.package:
+    name:
+      - go
+      - python
+      - python-pip
+      - nodejs
+      - npm
+      - pnpm
+      - fnm
+      - openssl
+      - zlib
+      - xz
+      - bzip2
+      - libffi
+      - sqlite
+      - readline
+      - tk
+    state: present

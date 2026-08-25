@@ -1,0 +1,48 @@
+---
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ user_home }}/.ssh"
+    state: directory
+    mode: "0700"
+    owner: "{{ user_name }}"
+    group: "{{ user_name }}"
+
+- name: Check for existing SSH key
+  ansible.builtin.stat:
+    path: "{{ user_home }}/.ssh/id_ed25519"
+  register: ssh_key_stat
+
+- name: Generate SSH key
+  ansible.builtin.command: >-
+    ssh-keygen -t ed25519 -C "{{ ssh_key_comment }}" -f "{{ user_home }}/.ssh/id_ed25519" -N ""
+  when: not ssh_key_stat.stat.exists
+  changed_when: true
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Read public key
+  ansible.builtin.slurp:
+    src: "{{ user_home }}/.ssh/id_ed25519.pub"
+  register: ssh_key_pub
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Show public key for GitHub
+  ansible.builtin.debug:
+    msg: "Add this SSH key to GitHub, then return to continue:\n{{ ssh_key_pub.content | b64decode }}"
+
+- name: Pause for GitHub SSH key setup
+  ansible.builtin.pause:
+    prompt: "Press Enter after adding the SSH key to GitHub."
+
+- name: Verify GitHub SSH access
+  ansible.builtin.command: ssh -T -o StrictHostKeyChecking=accept-new git@github.com
+  register: ssh_key_test
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Show GitHub SSH check result
+  ansible.builtin.debug:
+    var: ssh_key_test.stdout

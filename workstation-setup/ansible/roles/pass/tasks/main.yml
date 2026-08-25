@@ -1,0 +1,64 @@
+---
+- name: Ensure pass packages are installed
+  ansible.builtin.package:
+    name:
+      - gnupg
+      - pass
+      - pinentry
+    state: present
+
+- name: Check GPG key file exists
+  ansible.builtin.stat:
+    path: "{{ gpg_key_path }}"
+  register: pass_gpg_key_file
+
+- name: Fail if GPG key file is missing
+  ansible.builtin.fail:
+    msg: "GPG key file not found at {{ gpg_key_path }}. Export your key there before running Ansible."
+  when: not pass_gpg_key_file.stat.exists
+
+- name: List current secret keys
+  ansible.builtin.command: gpg --list-secret-keys --with-colons
+  register: pass_gpg_secret_keys
+  changed_when: false
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Import GPG key
+  ansible.builtin.command: "gpg --import {{ gpg_key_path }}"
+  when: gpg_fingerprint not in pass_gpg_secret_keys.stdout
+  changed_when: true
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Clone pass store repo
+  ansible.builtin.git:
+    repo: "{{ pass_repo }}"
+    dest: "{{ pass_store_dir }}"
+    version: main
+    accept_hostkey: true
+    update: true
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Read pass store GPG id
+  ansible.builtin.slurp:
+    src: "{{ pass_store_dir }}/.gpg-id"
+  register: pass_gpg_id
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Ensure pass store GPG id matches
+  ansible.builtin.assert:
+    that:
+      - "gpg_fingerprint in (pass_gpg_id.content | b64decode)"
+    fail_msg: "pass store .gpg-id does not match the expected fingerprint."
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Initialize pass store if missing
+  ansible.builtin.command: "pass init {{ gpg_fingerprint }}"
+  args:
+    creates: "{{ pass_store_dir }}/.gpg-id"
+  become: true
+  become_user: "{{ user_name }}"

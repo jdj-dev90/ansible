@@ -1,0 +1,38 @@
+---
+- name: Ensure base packages are installed
+  ansible.builtin.package:
+    name:
+      - sudo
+      - openssh
+      - curl
+      - wget
+      - unzip
+      - zip
+      - tar
+      - gzip
+      - ca-certificates
+    state: present
+
+- name: Read current timezone
+  ansible.builtin.command: timedatectl show -p Timezone --value
+  register: base_timezone_current
+  changed_when: false
+
+- name: Set timezone
+  ansible.builtin.command: timedatectl set-timezone {{ timezone }}
+  when: base_timezone_current.stdout != timezone
+  changed_when: base_timezone_current.stdout != timezone
+
+- name: Ensure locale is enabled
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: '^#?{{ locale }}'
+    line: '{{ locale }} UTF-8'
+  register: base_locale_gen
+  notify: Regenerate locales
+
+- name: Set locale.conf
+  ansible.builtin.copy:
+    dest: /etc/locale.conf
+    content: "LANG={{ locale }}\n"
+    mode: "0644"

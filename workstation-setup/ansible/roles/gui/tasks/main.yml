@@ -1,0 +1,8 @@
+---
+- name: Ensure GUI utilities are installed
+  ansible.builtin.package:
+    name:
+      - zathura
+      - pavucontrol
+      - stalonetray
+    state: present

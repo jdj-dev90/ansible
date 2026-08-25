@@ -15,7 +15,14 @@ extra_packages:
   - proton-vpn-cli
   - gimp
 
-extra_aur_packages: []
+extra_aur_packages:
+  # Lenovo ThinkPad dock daemon -- hardware-specific, and this machine is a
+  # ThinkPad. It was previously in the shared dev role, filed there because the
+  # name reads as docker-adjacent; it has nothing to do with Docker and would
+  # be meaningless on the HP work machine. Note it depends on libxrandr and so
+  # predates the move to Wayland -- worth checking whether it still does
+  # anything now the dock is DisplayLink.
+  - dockd
 
 # Work tooling already on this machine is deliberately NOT managed here: it is
 # installed, it works, and this machine is the backup. Ansible simply leaves it

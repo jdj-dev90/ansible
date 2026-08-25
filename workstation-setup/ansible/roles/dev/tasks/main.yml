@@ -52,7 +52,6 @@
       - neovim-nightly-bin
       - jqp
       - docker-sbx
-      - dockd
 
 - name: Enable and start Docker
   ansible.builtin.systemd:

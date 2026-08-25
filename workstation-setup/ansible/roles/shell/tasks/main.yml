@@ -23,6 +23,7 @@
       - fx
       - tabiew
       # system inspection
+      - fastfetch
       - htop
       - btop
       - tldr
@@ -36,6 +37,9 @@
     name: aur
   vars:
     aur_packages:
+      # neofetch is gone: upstream archived it in 2024 and the key its PKGBUILD
+      # pins is on no keyserver any more, so the AUR build cannot verify its
+      # sources and fails. fastfetch is the maintained successor and lives in
+      # the official repos, so it is in the package list above rather than here.
       - ncpamixer
       - pacmixer
-      - neofetch

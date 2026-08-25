@@ -9,6 +9,16 @@ locale: en_AU.UTF-8
 
 dotfiles_repo: git@github.com:jdj-dev90/.dotfiles.git
 
+# Every git operation goes through this. The `timeout` wrapper is load-bearing,
+# not belt-and-braces: a graphical SSH agent (gnome-keyring's gcr) answers a key
+# *listing* instantly but blocks forever on a *signing* request while it waits
+# for a GUI confirmation that a headless run can never satisfy. BatchMode does
+# not help -- it only suppresses ssh's own prompts, not the agent's. Without the
+# wrapper the playbook hangs indefinitely instead of failing.
+git_ssh_command: >-
+  timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=15
+  -o StrictHostKeyChecking=accept-new
+
 # Canonical stow package list. The dotfiles repo declares the same value in
 # zsh/.zsh_profile; the dotfiles role asserts the two agree so drift is loud
 # rather than silent.

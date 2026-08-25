@@ -1,13 +1,85 @@
 ---
+# NOTE ON DESTRUCTIVENESS
+# ansible.builtin.git with update:true resolves to `git reset --hard`, which
+# silently discards uncommitted work AND unpushed commits. The dotfiles repo is
+# edited by hand constantly, so pointing that at a live checkout is a data-loss
+# bug waiting to happen -- when this was first audited the working tree held 29
+# modified files, 15 untracked files and 3 unpushed commits.
+#
+# So: clone when absent, and update ONLY when the checkout is provably clean and
+# not ahead of the remote. Otherwise skip loudly and let a human deal with it.
+- name: Check whether dotfiles are already checked out
+  ansible.builtin.stat:
+    path: "{{ user_home }}/.dotfiles/.git"
+  register: dotfiles_checkout
+
 - name: Clone dotfiles repo
   ansible.builtin.git:
     repo: "{{ dotfiles_repo }}"
     dest: "{{ user_home }}/.dotfiles"
     version: main
     accept_hostkey: true
-    update: true
+  when: not dotfiles_checkout.stat.exists
   become: true
   become_user: "{{ user_name }}"
+
+- name: Check for uncommitted changes
+  ansible.builtin.command: git status --porcelain
+  args:
+    chdir: "{{ user_home }}/.dotfiles"
+  register: dotfiles_dirty
+  changed_when: false
+  when: dotfiles_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Fetch remote refs
+  ansible.builtin.command: git fetch origin main
+  args:
+    chdir: "{{ user_home }}/.dotfiles"
+  register: dotfiles_fetch
+  changed_when: false
+  failed_when: false
+  when: dotfiles_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Count unpushed commits
+  ansible.builtin.command: git rev-list --count origin/main..HEAD
+  args:
+    chdir: "{{ user_home }}/.dotfiles"
+  register: dotfiles_ahead
+  changed_when: false
+  when: dotfiles_checkout.stat.exists
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Update dotfiles only when it is safe to do so
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ user_home }}/.dotfiles"
+    version: main
+    accept_hostkey: true
+    update: true
+  when:
+    - dotfiles_checkout.stat.exists
+    - dotfiles_dirty.stdout | default('') | trim == ''
+    - dotfiles_ahead.stdout | default('0') | int == 0
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Report a skipped dotfiles update
+  ansible.builtin.debug:
+    msg: >-
+      Left {{ user_home }}/.dotfiles alone: it has
+      {{ dotfiles_dirty.stdout_lines | default([]) | length }} uncommitted
+      change(s) and {{ dotfiles_ahead.stdout | default('0') }} unpushed
+      commit(s). Updating would have discarded them. Commit or push, then
+      re-run.
+  when:
+    - dotfiles_checkout.stat.exists
+    - (dotfiles_dirty.stdout | default('') | trim != '') or
+      (dotfiles_ahead.stdout | default('0') | int > 0)
 
 # The dotfiles repo declares the canonical stow list in zsh/.zsh_profile. We
 # keep our own copy in vars/common.yml rather than parsing shell at runtime,

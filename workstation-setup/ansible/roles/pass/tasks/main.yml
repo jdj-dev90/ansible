@@ -7,26 +7,37 @@
       - pinentry
     state: present
 
-- name: Check GPG key file exists
-  ansible.builtin.stat:
-    path: "{{ gpg_key_path }}"
-  register: pass_gpg_key_file
-
-- name: Fail if GPG key file is missing
-  ansible.builtin.fail:
-    msg: "GPG key file not found at {{ gpg_key_path }}. Export your key there before running Ansible."
-  when: not pass_gpg_key_file.stat.exists
-
+# The GPG key is imported once, by hand, from an export dropped in ~/Downloads.
+# That export is a bootstrap artifact and is normally long gone -- so demanding
+# it on every run makes the playbook abort on an already-working machine. Check
+# the keyring first; only require the file if the key is genuinely absent.
 - name: List current secret keys
   ansible.builtin.command: gpg --list-secret-keys --with-colons
   register: pass_gpg_secret_keys
   changed_when: false
+  failed_when: false
   become: true
   become_user: "{{ user_name }}"
 
+- name: Check for the GPG key export
+  ansible.builtin.stat:
+    path: "{{ gpg_key_path }}"
+  register: pass_gpg_key_file
+
+- name: Fail only if the key is neither imported nor available to import
+  ansible.builtin.fail:
+    msg: >-
+      GPG key {{ gpg_fingerprint }} is not in the keyring, and no export exists
+      at {{ gpg_key_path }}. Export the key there, then re-run.
+  when:
+    - gpg_fingerprint not in pass_gpg_secret_keys.stdout
+    - not pass_gpg_key_file.stat.exists
+
 - name: Import GPG key
   ansible.builtin.command: "gpg --import {{ gpg_key_path }}"
-  when: gpg_fingerprint not in pass_gpg_secret_keys.stdout
+  when:
+    - gpg_fingerprint not in pass_gpg_secret_keys.stdout
+    - pass_gpg_key_file.stat.exists
   changed_when: true
   become: true
   become_user: "{{ user_name }}"

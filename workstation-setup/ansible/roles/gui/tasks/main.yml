@@ -66,15 +66,43 @@
   loop_control:
     label: "{{ item.item }}"
 
-- name: Enable and start user services
+# Enabling is always safe and idempotent. STARTING is not: these units depend
+# on hardware that may simply not be present -- audio-defaults pins a specific
+# USB headset by name and exits 1 with "No such entity" whenever it is
+# unplugged. That is a property of the unit, not a provisioning failure, so a
+# failed start must not abort the play. It is reported instead.
+- name: Enable user services
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     scope: user
     enabled: true
-    state: started
     daemon_reload: true
   loop: "{{ user_services }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[user_name][1] }}"
   become: true
   become_user: "{{ user_name }}"
+
+- name: Start user services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    scope: user
+    state: started
+  loop: "{{ user_services }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[user_name][1] }}"
+  register: gui_service_start
+  failed_when: false
+  become: true
+  become_user: "{{ user_name }}"
+
+- name: Report user services that would not start
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.item }} is enabled but did not start. Usually means the hardware
+      it depends on is absent. Check:
+      systemctl --user status {{ item.item }}
+  when: item.failed | default(false)
+  loop: "{{ gui_service_start.results }}"
+  loop_control:
+    label: "{{ item.item }}"
